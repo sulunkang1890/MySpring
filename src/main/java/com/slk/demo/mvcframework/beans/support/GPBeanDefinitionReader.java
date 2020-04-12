@@ -110,6 +110,7 @@ public class GPBeanDefinitionReader {
         }
     }
 
+
     //自己写，自己用
     private String toLowerFirstCase(String simpleName) {
         char [] chars = simpleName.toCharArray();

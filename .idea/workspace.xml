@@ -250,7 +250,7 @@
       <select />
     </treeState>
   </component>
-  <component name="ProjectFrameBounds" extendedState="7">
+  <component name="ProjectFrameBounds" extendedState="6">
     <option name="x" value="1" />
     <option name="width" value="1364" />
     <option name="height" value="735" />
@@ -476,7 +476,7 @@
   <component name="PropertiesComponent">
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
-    <property name="com.android.tools.idea.instantapp.provision.ProvisionBeforeRunTaskProvider.myTimeStamp" value="1586703922640" />
+    <property name="com.android.tools.idea.instantapp.provision.ProvisionBeforeRunTaskProvider.myTimeStamp" value="1586703942138" />
     <property name="last_opened_file_path" value="D:/咕泡练习/设计模式/2020期课程资料/02.架构师审美观/01.Spring核心原理篇/02.用300行代码手写初体验Spring V1.0版本/笔记与源码/gupaoedu-vip-spring-1.0/gupaoedu-vip-spring-1.0" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
