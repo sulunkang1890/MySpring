@@ -27,4 +27,6 @@ public class GPBeanWrapper {
     public void setWrapperClass(Class<?> wrapperClass) {
         this.wrapperClass = wrapperClass;
     }
+
+
 }

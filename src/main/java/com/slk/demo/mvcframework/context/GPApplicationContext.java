@@ -30,7 +30,7 @@ public class GPApplicationContext {
         //加载配置文件
         beanDefinitionReader=new GPBeanDefinitionReader(configLocations);
         //解析配置文件 封装成BeanDefinition
-        List<GPBeanDefinition> definitionlist=beanDefinitionReader.loadBeanDefinition();
+        List<GPBeanDefinition> definitionlist=beanDefinitionReader.loadBeanDefinitions();
         //把BeanDefinition缓存起来 注册到缓存中
         try {
             doRegisterBeanDefinition(definitionlist);
@@ -81,6 +81,49 @@ public class GPApplicationContext {
      * @param beanDefinition
      * @param beanWrapper
      */
+//    private void populateBean(String beanName, GPBeanDefinition beanDefinition, GPBeanWrapper beanWrapper) {
+//        //可能涉及到循环依赖？
+//        //A{ B b}
+//        //B{ A b}
+//        //用两个缓存，循环两次
+//        //1、把第一次读取结果为空的BeanDefinition存到第一个缓存
+//        //2、等第一次循环之后，第二次循环再检查第一次的缓存，再进行赋值
+//
+//        Object instance = beanWrapper.getWrapperInstance();
+//
+//        Class<?> clazz = beanWrapper.getWrapperClass();
+//
+//        //在Spring中@Component
+//        if(!(clazz.isAnnotationPresent(GPController.class) || clazz.isAnnotationPresent(GPService.class))){
+//            return;
+//        }
+//
+//        //把所有的包括private/protected/default/public 修饰字段都取出来
+//        for (Field field : clazz.getDeclaredFields()) {
+//            if(!field.isAnnotationPresent(GPAutowired.class)){ continue; }
+//
+//            GPAutowired autowired = field.getAnnotation(GPAutowired.class);
+//
+//            //如果用户没有自定义的beanName，就默认根据类型注入
+//            String autowiredBeanName = autowired.value().trim();
+//            if("".equals(autowiredBeanName)){
+//                //field.getType().getName() 获取字段的类型
+//                autowiredBeanName = field.getType().getName();
+//            }
+//
+//            //暴力访问
+//            field.setAccessible(true);
+//
+//            try {
+//                if(this.factoryBeanInstanceCache.get(autowiredBeanName) == null){
+//                    continue;
+//                }
+//                field.set(instance,this.factoryBeanInstanceCache.get(autowiredBeanName).getWrapperInstance());
+//            } catch (IllegalAccessException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//    }
     private void populateBean(String beanName, GPBeanDefinition beanDefinition, GPBeanWrapper beanWrapper) {
         //可能涉及到循环依赖？
         //A{ B b}
@@ -118,12 +161,16 @@ public class GPApplicationContext {
                 if(this.factoryBeanInstanceCache.get(autowiredBeanName) == null){
                     continue;
                 }
+                //ioc.get(beanName) 相当于通过接口的全名拿到接口的实现的实例
                 field.set(instance,this.factoryBeanInstanceCache.get(autowiredBeanName).getWrapperInstance());
             } catch (IllegalAccessException e) {
                 e.printStackTrace();
+                continue;
             }
         }
+
     }
+
 
     /**
      * 实例化对象
@@ -131,13 +178,39 @@ public class GPApplicationContext {
      * @param beanDefinition
      * @return
      */
+//    private Object instantiateBean(String beanName, GPBeanDefinition beanDefinition) {
+//        String className = beanDefinition.getBeanClassName();
+//        Object instance=null;
+//        try {
+//            /**
+//             * IOC容器中应该是单例的 所以加入之前需要先判断容器中是否已经存在
+//             */
+//            if(this.factoryBeanObjectCache.containsKey(className)){
+//                return this.factoryBeanInstanceCache.get(className);
+//            }
+//            Class<?> clazz=Class.forName(className);
+//
+//            instance=clazz.newInstance();
+//            this.factoryBeanObjectCache.put(beanName,instance);
+//        }catch (Exception e){
+//            e.printStackTrace();
+//        }
+//        return instance;
+//    }
     private Object instantiateBean(String beanName, GPBeanDefinition beanDefinition) {
-        String className =beanDefinition.getFactoryBeanName();
-        Object instance=null;
+        String className = beanDefinition.getBeanClassName();
+        Object instance = null;
         try {
-            Class<?> clazz=Class.forName(className);
-            instance=clazz.newInstance();
-            this.factoryBeanObjectCache.put(beanName,instance);
+
+            if(this.factoryBeanObjectCache.containsKey(beanName)){
+                instance = this.factoryBeanObjectCache.get(beanName);
+            }else {
+
+                Class<?> clazz = Class.forName(className);
+                //2、默认的类名首字母小写
+                instance = clazz.newInstance();
+                this.factoryBeanObjectCache.put(beanName, instance);
+            }
         }catch (Exception e){
             e.printStackTrace();
         }
@@ -146,5 +219,13 @@ public class GPApplicationContext {
 
     public Object getBean(Class<?> beanClass){
         return getBean(beanClass.getName());
+    }
+
+    public int getBeanDefinitionCount() {
+       return this.beanDefinitionMap.size();
+    }
+
+    public String[] getBeanDefinitionNames() {
+        return this.beanDefinitionMap.keySet().toArray(new String[beanDefinitionMap.size()]);
     }
 }
