@@ -170,6 +170,7 @@ public class GPDispatcherServlet extends HttpServlet {
          * 通过classLoder 读取这个配置文件 application.properties 转化成流
          *  <init-param>
          *       <param-name>contextConfigLocation</param-name>
+         *
          *       <param-value>application.properties</param-value>
          *   </init-param>
          *   通过 inputStream  变成Properties contextConfig 保存
