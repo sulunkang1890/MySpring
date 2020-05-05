@@ -1,20 +1,19 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.gupaoedu.vip.gpmvc</groupId>
-  <artifactId>gupaoedu-vip-spring</artifactId>
-  <version>1.0</version>
-  <packaging>war</packaging>
 
+  <groupId>com.gupaoedu.vip</groupId>
+  <artifactId>gupaoedu-vip-spring-mvc</artifactId>
+  <version>2.0</version>
 
   <properties>
     <!-- dependency versions -->
     <servlet.api.version>2.4</servlet.api.version>
   </properties>
 
-
   <dependencies>
-
     <!-- requied start -->
     <dependency>
       <groupId>javax.servlet</groupId>
@@ -24,7 +23,26 @@
     </dependency>
     <!-- requied end -->
 
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.16.10</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.2.3</version>
+    </dependency>
+
   </dependencies>
+
 
   <build>
     <finalName>${artifactId}</finalName>
@@ -94,7 +112,7 @@
           <contextPath>/</contextPath>
           <connectors>
             <connector implementation="org.mortbay.jetty.nio.SelectChannelConnector">
-              <port>8080</port>
+              <port>80</port>
             </connector>
           </connectors>
           <scanIntervalSeconds>0</scanIntervalSeconds>
@@ -156,11 +174,6 @@
               <includes>
                 <include>**/*.*</include>
               </includes>
-              <!-- <excludes>
-                  <exclude>**/local</exclude>
-                  <exclude>**/test</exclude>
-                  <exclude>**/product</exclude>
-              </excludes> -->
               <filtering>true</filtering>
             </resource>
             <resource>
@@ -172,8 +185,20 @@
           </webResources>
         </configuration>
       </plugin>
-
-
+      <plugin>
+        <groupId>org.zeroturnaround</groupId>
+        <artifactId>javarebel-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>generate-rebel-xml</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+        <version>1.0.5</version>
+      </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
@@ -212,4 +237,5 @@
       </plugins>
     </pluginManagement>
   </build>
+
 </project>

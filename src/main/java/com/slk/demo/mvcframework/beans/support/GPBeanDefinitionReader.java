@@ -21,6 +21,10 @@ public class GPBeanDefinitionReader {
     //保存扫描的结果
     private List<String> regitryBeanClasses = new ArrayList<String>();
     private Properties contextConfig = new Properties();
+    public Properties getConfig(){
+        return this.contextConfig;
+    }
+
 
     public GPBeanDefinitionReader(String... configLocations) {
         doLoadConfig(configLocations[0]);

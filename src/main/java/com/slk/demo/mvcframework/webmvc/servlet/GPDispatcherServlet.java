@@ -11,10 +11,12 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.annotation.Annotation;
+
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 委派模式 任务调度
@@ -24,12 +26,10 @@ public class GPDispatcherServlet extends HttpServlet {
     private Properties contextConfig=new Properties();
     //保存所有的类名
     private List<String> classNames=new ArrayList<String>();
-    //IOC 容器
-//    private Map<String,Object> ioc=new HashMap<String, Object>();
-    //保存url和Method的对应关系
-    private Map<String,Method> handlerMapping = new HashMap<String,Method>();
-
+    private List<GPHandlerMapping> handlerMappings=new ArrayList<GPHandlerMapping>();
+    private Map<GPHandlerMapping,GPHandlerAdapter> handlerAdapters =new HashMap<GPHandlerMapping, GPHandlerAdapter>();
     private GPApplicationContext applicationContext;
+    private List<GPViewResolver> viewResolvers = new ArrayList<GPViewResolver>();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -50,67 +50,72 @@ public class GPDispatcherServlet extends HttpServlet {
     }
 
     private void doDispatch(HttpServletRequest req, HttpServletResponse resp) throws Exception {
+        //完成了对HandlerMapping的封装
+        //完成了对方法返回值的封装ModelAndView
+        //1、通过URL获得一个HandlerMapping
+        GPHandlerMapping handler = getHandler(req);
+        if(handler == null){
+            processDispatchResult(req,resp,new GPModelAndView("404"));
+            return;
+        }
+
+        //2、根据一个HandlerMaping获得一个HandlerAdapter
+        GPHandlerAdapter ha = getHandlerAdapter(handler);
+        //3、解析某一个方法的形参和返回值之后，统一封装为ModelAndView对象
+        GPModelAndView mv = ha.handler(req,resp,handler);
+
+        // 就把ModelAndView变成一个ViewResolver
+        processDispatchResult(req,resp,mv);
+
+    }
+
+
+
+
+    private void processDispatchResult(HttpServletRequest req, HttpServletResponse resp, GPModelAndView mv) throws Exception {
+        if(null == mv){return;}
+        if(this.viewResolvers.isEmpty()){return;}
+
+        for (GPViewResolver viewResolver : this.viewResolvers) {
+            GPView view = viewResolver.resolveViewName(mv.getViewName());
+            //直接往浏览器输出
+            view.render(mv.getModel(),req,resp);
+            return;
+        }
+    }
+    private GPHandlerMapping getHandler(HttpServletRequest req) {
+        if(this.handlerMappings.isEmpty()){
+            return null;
+        }
         //获取绝对路径 /springdemo1_war/query
         String url=req.getRequestURI();
         //获取项目虚拟目录 /springdemo1_war/query
         String contextPath=req.getContextPath();
         //处理成相对路径  localhost/springdemo1_war/query?name=slk=>/query
         url=url.replaceAll(contextPath,"").replaceAll("/+","/");
-        if(!this.handlerMapping.containsKey(url)){
-            try {
-                resp.getWriter().write("404: not Found!!");
-                return;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        for (GPHandlerMapping mapping : handlerMappings) {
+            Matcher matcher = mapping.getPattern().matcher(url);
+            if(!matcher.matches()){continue;}
+            return mapping;
         }
-        Method method=this.handlerMapping.get(url);
-        //拿到get请求的的参数
-        Map<String,String[]> params=req.getParameterMap();
-        //获取方法的形参列表
-        Class<?>[] parameterTypes=method.getParameterTypes();
-        Object [] paramValues=new Object[parameterTypes.length];
-        for (int i = 0; i < parameterTypes.length; i++) {
-            Class parameterType=parameterTypes[i];
-            if(parameterType==HttpServletRequest.class){
-                paramValues[i]=req;
-            }else if (parameterType==HttpServletResponse.class){
-                paramValues[i]=resp;
-            }else if(parameterType==String.class){
-                Annotation [] [] annotations=method.getParameterAnnotations();
-                //method.getParameterAnnotations(); 返回值是二维数组  第一个维度对应参数列表里参数的数目，第二个维度对应参数列表里对应的注解
-                //annotations【i】 是i的原因  是因为 这里面 从第i 个开始遍历 前面的 已经不需要遍历了
-                for (int k=0;k<annotations[i].length;k++){
-                     if(annotations[i][k] instanceof GPRequestParam){
-                         String paramName = ((GPRequestParam) annotations[i][k]).value();
-                         if(!"".equals(paramName.trim())){
-                             String temp=Arrays.toString(params.get(paramName));
-                            String value = Arrays.toString(params.get(paramName))
-                                .replaceAll("\\[|\\]","")
-                                .replaceAll("\\s",",");
-                            paramValues[i] = value;
-
-                         }
-                    }
-                }
-            }
-        }
-        String beanName  = toLowerFirstCase(method.getDeclaringClass().getSimpleName());
-//       method.invoke(ioc.get(beanName),paramValues);
-        method.invoke(applicationContext.getBean(beanName),paramValues);
+        return null;
     }
-
-
+    private GPHandlerAdapter getHandlerAdapter(GPHandlerMapping handler) {
+        if(this.handlerAdapters.isEmpty()){return null;}
+        return this.handlerAdapters.get(handler);
+    }
 
     @Override
     public void init(ServletConfig config) throws ServletException {
         //初始化Spring核心IoC容器
         applicationContext = new GPApplicationContext(config.getInitParameter("contextConfigLocation"));
-        //5、初始化HandlerMapping
-        initHandlerMapping();
+        //完成了IoC、DI和MVC部分对接
+        //初始化九大组件
+        initStrategies(applicationContext);
+        System.out.println("GP Spring framework is init.");
     }
     //完成 url-method 之间的对应
-    private void initHandlerMapping() {
+    private void initHandlerMappings(GPApplicationContext context) {
         if(this.applicationContext.getBeanDefinitionCount()==0) return;
         for (String beanName:this.applicationContext.getBeanDefinitionNames()){
             Object instance=this.applicationContext.getBean(beanName);
@@ -131,9 +136,55 @@ public class GPDispatcherServlet extends HttpServlet {
                     continue;
                 }
                 GPRequestMapping requestMapping=method.getAnnotation(GPRequestMapping.class);
-                String url=("/"+baseUrl+"/"+requestMapping.value()).replaceAll("/+","/");
-                handlerMapping.put(url,method);
+                String regex = ("/" + baseUrl + "/" + requestMapping.value().replaceAll("\\*",".*")).replaceAll("/+","/");
+                Pattern pattern = Pattern.compile(regex);
+                //handlerMapping.put(url,method);
+                handlerMappings.add(new GPHandlerMapping(pattern,instance,method));
+                System.out.println("Mapped : " + regex + "," + method);
             }
+        }
+
+    }
+    private void initStrategies(GPApplicationContext context) {
+//        //多文件上传的组件
+//        initMultipartResolver(context);
+//        //初始化本地语言环境
+//        initLocaleResolver(context);
+//        //初始化模板处理器
+//        initThemeResolver(context);
+        //handlerMapping
+        initHandlerMappings(context);
+        //初始化参数适配器
+
+        initHandlerAdapters(context);
+//        //初始化异常拦截器
+//        initHandlerExceptionResolvers(context);
+//        //初始化视图预处理器
+//        initRequestToViewNameTranslator(context);
+        //初始化视图转换器
+        initViewResolvers(context);
+//        //FlashMap管理器
+//        initFlashMapManager(context);
+    }
+
+
+
+    private void initHandlerAdapters(GPApplicationContext context) {
+        for (GPHandlerMapping handlerMapping : handlerMappings) {
+             this.handlerAdapters.put(handlerMapping,new GPHandlerAdapter());
+        }
+
+    }
+
+    private void initViewResolvers(GPApplicationContext context) {
+        String templateRoot = context.getConfig().getProperty("templateRoot");
+        URL url=this.getClass().getClassLoader().getResource(templateRoot);
+        String temp=url.getFile();
+        String templateRootPath = this.getClass().getClassLoader().getResource(templateRoot).getFile();
+
+        File templateRootDir = new File(templateRootPath);
+        for (File file : templateRootDir.listFiles()) {
+            this.viewResolvers.add(new GPViewResolver(templateRoot));
         }
 
     }
